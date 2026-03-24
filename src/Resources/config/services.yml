@@ -1,0 +1,10 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    Tappet\Bundle\Controller\:
+        resource: '../../Controller/'
+
+    Tappet\Api\Fixture\Loader\DelegatingFixtureLoader: ~
+    Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface: '@Tappet\Api\Fixture\Loader\DelegatingFixtureLoader'
