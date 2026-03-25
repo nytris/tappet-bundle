@@ -32,7 +32,7 @@ class TestKernel extends Kernel
      */
     public function getCacheDir(): string
     {
-        return realpath(__DIR__ . '/../../../../') . '/var/' . $this->environment . '/cache';
+        return dirname(__DIR__, 4) . '/var/' . $this->environment . '/cache';
     }
 
     /**
@@ -40,7 +40,7 @@ class TestKernel extends Kernel
      */
     public function getLogDir(): string
     {
-        return realpath(__DIR__ . '/../../../../') . '/var/' . $this->environment . '/logs';
+        return dirname(__DIR__, 4) . '/var/' . $this->environment . '/logs';
     }
 
     /**

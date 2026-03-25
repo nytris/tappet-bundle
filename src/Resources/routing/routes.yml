@@ -1,3 +1,9 @@
-tappet_controllers:
-    resource: '../../Controller/'
-    type: attribute
+tappet_api_load_fixtures:
+    path: '/.well-known/tappet/fixture/{fixtureClass}'
+    methods: ['POST']
+    controller: Tappet\Bundle\Controller\Api\FixtureController::loadAction
+
+tappet_api_purge_fixtures:
+    path: '/.well-known/tappet/fixtures'
+    methods: ['DELETE']
+    controller: Tappet\Bundle\Controller\Api\FixtureController::purgeAction

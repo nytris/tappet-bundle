@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
-use Symfony\Component\Routing\Annotation\Route;
 use Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface;
 use Tappet\Core\Fixture\FixtureInterface;
 use Tappet\Core\Fixture\ModelInterface;
@@ -42,7 +41,6 @@ class FixtureController
      * Expects a JSON body of the form:
      * [{"fixture": "<serialised FixtureInterface>", "model": "<serialised ModelInterface>"}, ...]
      */
-    #[Route('/.well-known/tappet/fixtures', name: 'tappet_purge_fixtures', methods: ['DELETE'])]
     public function purgeAction(Request $request): Response
     {
         $body = (array) json_decode($request->getContent(), true, flags: JSON_THROW_ON_ERROR);
@@ -88,7 +86,6 @@ class FixtureController
      * Expects a JSON body of the form:
      * {"serialisation": "<serialised FixtureInterface>"}
      */
-    #[Route('/.well-known/tappet/fixture/{fixtureClass}', name: 'tappet_load_fixtures', methods: ['POST'])]
     public function loadAction(Request $request, string $fixtureClass): JsonResponse
     {
         $fixtureClass = str_replace('--', '\\', $fixtureClass);

@@ -41,48 +41,48 @@ class BundleRoutesTest extends AbstractKernelTestCase
 
     public function testLoadFixturesRouteIsAutomaticallyRegistered(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_load_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_fixtures');
 
         static::assertNotNull(
             $route,
-            'Expected route "tappet_load_fixtures" to be registered automatically by the bundle'
+            'Expected route "tappet_api_load_fixtures" to be registered automatically by the bundle'
         );
     }
 
     public function testLoadFixturesRouteHasCorrectPath(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_load_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_fixtures');
 
         static::assertSame('/.well-known/tappet/fixture/{fixtureClass}', $route->getPath());
     }
 
     public function testLoadFixturesRouteOnlyAcceptsPostRequests(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_load_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_fixtures');
 
         static::assertSame(['POST'], $route->getMethods());
     }
 
     public function testDeleteFixturesRouteIsAutomaticallyRegistered(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_purge_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_purge_fixtures');
 
         static::assertNotNull(
             $route,
-            'Expected route "tappet_purge_fixtures" to be registered automatically by the bundle'
+            'Expected route "tappet_api_purge_fixtures" to be registered automatically by the bundle'
         );
     }
 
     public function testDeleteFixturesRouteHasCorrectPath(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_purge_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_purge_fixtures');
 
         static::assertSame('/.well-known/tappet/fixtures', $route->getPath());
     }
 
     public function testDeleteFixturesRouteOnlyAcceptsDeleteRequests(): void
     {
-        $route = $this->router->getRouteCollection()->get('tappet_purge_fixtures');
+        $route = $this->router->getRouteCollection()->get('tappet_api_purge_fixtures');
 
         static::assertSame(['DELETE'], $route->getMethods());
     }
@@ -93,7 +93,7 @@ class BundleRoutesTest extends AbstractKernelTestCase
 
         $params = $this->router->match('/.well-known/tappet/fixture/My--Fixture');
 
-        static::assertSame('tappet_load_fixtures', $params['_route']);
+        static::assertSame('tappet_api_load_fixtures', $params['_route']);
         static::assertSame('My--Fixture', $params['fixtureClass']);
     }
 
@@ -103,6 +103,6 @@ class BundleRoutesTest extends AbstractKernelTestCase
 
         $params = $this->router->match('/.well-known/tappet/fixtures');
 
-        static::assertSame('tappet_purge_fixtures', $params['_route']);
+        static::assertSame('tappet_api_purge_fixtures', $params['_route']);
     }
 }
