@@ -13,5 +13,4 @@ services:
         autoconfigure: true
 
 tappet:
-    enabled: true
-    api_key: 'test-api-key'
+    enabled: false

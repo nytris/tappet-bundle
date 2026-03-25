@@ -17,8 +17,10 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface;
+use Tappet\Bundle\Authorisation\AuthorisationCheckerInterface;
 use Tappet\Core\Fixture\FixtureInterface;
 use Tappet\Core\Fixture\ModelInterface;
 
@@ -32,6 +34,8 @@ class FixtureController
 {
     public function __construct(
         private readonly DelegatingFixtureLoaderInterface $delegatingFixtureLoader,
+        private readonly AuthorisationCheckerInterface $authorisationChecker,
+        private readonly bool $enabled,
     ) {
     }
 
@@ -43,6 +47,12 @@ class FixtureController
      */
     public function purgeAction(Request $request): Response
     {
+        if (!$this->enabled) {
+            throw new NotFoundHttpException();
+        }
+
+        $this->authorisationChecker->checkAuthorisation($request);
+
         $body = (array) json_decode($request->getContent(), true, flags: JSON_THROW_ON_ERROR);
 
         foreach ($body as $item) {
@@ -88,6 +98,12 @@ class FixtureController
      */
     public function loadAction(Request $request, string $fixtureClass): JsonResponse
     {
+        if (!$this->enabled) {
+            throw new NotFoundHttpException();
+        }
+
+        $this->authorisationChecker->checkAuthorisation($request);
+
         $fixtureClass = str_replace('--', '\\', $fixtureClass);
 
         if (!is_subclass_of($fixtureClass, FixtureInterface::class)) {
@@ -114,5 +130,52 @@ class FixtureController
         $fixtureModel = $this->delegatingFixtureLoader->loadFixture($fixture);
 
         return new JsonResponse(['serialisation' => serialize($fixtureModel)]);
+    }
+
+    /**
+     * Loads multiple fixtures in bulk.
+     *
+     * Expects a JSON body of the form:
+     * {"serialisation": "<serialised array<handle, FixtureInterface>>"}
+     *
+     * Returns a JSON body of the form:
+     * {"serialisation": "<serialised array<handle, ModelInterface>>"}
+     */
+    public function loadMultipleAction(Request $request): JsonResponse
+    {
+        if (!$this->enabled) {
+            throw new NotFoundHttpException();
+        }
+
+        $this->authorisationChecker->checkAuthorisation($request);
+
+        $body = (array) json_decode($request->getContent(), true, flags: JSON_THROW_ON_ERROR);
+        $fixturesSerialisation = $body['serialisation'] ?? null;
+
+        $fixtures = $fixturesSerialisation !== null ?
+            @unserialize($fixturesSerialisation) :
+            null;
+
+        if (!is_array($fixtures)) {
+            throw new UnprocessableEntityHttpException(
+                'Fixtures data failed to deserialise as an array'
+            );
+        }
+
+        $models = [];
+
+        foreach ($fixtures as $handle => $fixture) {
+            if (!$fixture instanceof FixtureInterface) {
+                throw new UnprocessableEntityHttpException(sprintf(
+                    'Fixture for handle "%s" failed to deserialise as an instance of "%s"',
+                    $handle,
+                    FixtureInterface::class
+                ));
+            }
+
+            $models[$handle] = $this->delegatingFixtureLoader->loadFixture($fixture);
+        }
+
+        return new JsonResponse(['serialisation' => serialize($models)]);
     }
 }

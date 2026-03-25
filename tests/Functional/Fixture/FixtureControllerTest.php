@@ -61,7 +61,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixture/' . $fixtureClass,
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode(['serialisation' => serialize($fixture)]),
         );
 
@@ -85,7 +85,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixture/' . $fixtureClass,
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode(['serialisation' => serialize($fixture)]),
         );
 
@@ -96,6 +96,40 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertSame('another-widget', $model->name);
     }
 
+    public function testLoadFixtureReturns403WhenAuthorizationHeaderIsMissing(): void
+    {
+        $fixture = new TestFixture('my-widget');
+        $fixtureClass = str_replace('\\', '--', TestFixture::class);
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixture/' . $fixtureClass,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['serialisation' => serialize($fixture)]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
+    public function testLoadFixtureReturns403WhenAuthorizationHeaderIsWrong(): void
+    {
+        $fixture = new TestFixture('my-widget');
+        $fixtureClass = str_replace('\\', '--', TestFixture::class);
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixture/' . $fixtureClass,
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            json_encode(['serialisation' => serialize($fixture)]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
     public function testLoadFixtureReturns422ForUnknownFixtureClass(): void
     {
         $this->client->request(
@@ -103,8 +137,114 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixture/No--Such--Class',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode(['serialisation' => null]),
+        );
+
+        static::assertResponseStatusCodeSame(422);
+    }
+
+    public function testLoadMultipleFixturesCreatesAndReturnsSerializedModels(): void
+    {
+        $fixtureA = new TestFixture('widget-a');
+        $fixtureB = new TestFixture('widget-b');
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize(['handle-a' => $fixtureA, 'handle-b' => $fixtureB])]),
+        );
+
+        static::assertResponseIsSuccessful();
+
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true);
+        $models = unserialize($body['serialisation']);
+
+        static::assertArrayHasKey('handle-a', $models);
+        static::assertArrayHasKey('handle-b', $models);
+        static::assertInstanceOf(TestModel::class, $models['handle-a']);
+        static::assertInstanceOf(TestModel::class, $models['handle-b']);
+        static::assertSame('widget-a', $models['handle-a']->name);
+        static::assertSame('widget-b', $models['handle-b']->name);
+    }
+
+    public function testLoadMultipleFixturesUsesFixtureStateToProduceModels(): void
+    {
+        $fixture = new TestFixture('specific-name');
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize(['my-handle' => $fixture])]),
+        );
+
+        $body = json_decode((string) $this->client->getResponse()->getContent(), true);
+        $models = unserialize($body['serialisation']);
+
+        static::assertSame('specific-name', $models['my-handle']->name);
+    }
+
+    public function testLoadMultipleFixturesReturns403WhenAuthorizationHeaderIsMissing(): void
+    {
+        $fixture = new TestFixture('my-widget');
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode(['serialisation' => serialize(['handle' => $fixture])]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
+    public function testLoadMultipleFixturesReturns403WhenAuthorizationHeaderIsWrong(): void
+    {
+        $fixture = new TestFixture('my-widget');
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            json_encode(['serialisation' => serialize(['handle' => $fixture])]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
+    public function testLoadMultipleFixturesReturns422ForInvalidSerialisation(): void
+    {
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => 'not-valid-serialisation']),
+        );
+
+        static::assertResponseStatusCodeSame(422);
+    }
+
+    public function testLoadMultipleFixturesReturns422WhenFixtureIsNotAFixtureInterface(): void
+    {
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize(['my-handle' => 'not-a-fixture'])]),
         );
 
         static::assertResponseStatusCodeSame(422);
@@ -120,7 +260,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode([
                 ['fixture' => serialize($fixture), 'model' => serialize($model)],
             ]),
@@ -146,7 +286,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode([
                 ['fixture' => serialize($fixtureA), 'model' => serialize($modelA)],
                 ['fixture' => serialize($fixtureB), 'model' => serialize($modelB)],
@@ -163,6 +303,44 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertSame('beta', $unloaded[1]['model']->name);
     }
 
+    public function testPurgeFixturesReturns403WhenAuthorizationHeaderIsMissing(): void
+    {
+        $fixture = new TestFixture('to-delete');
+        $model = new TestModel('to-delete');
+
+        $this->client->request(
+            'DELETE',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json'],
+            json_encode([
+                ['fixture' => serialize($fixture), 'model' => serialize($model)],
+            ]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
+    public function testPurgeFixturesReturns403WhenAuthorizationHeaderIsWrong(): void
+    {
+        $fixture = new TestFixture('to-delete');
+        $model = new TestModel('to-delete');
+
+        $this->client->request(
+            'DELETE',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            json_encode([
+                ['fixture' => serialize($fixture), 'model' => serialize($model)],
+            ]),
+        );
+
+        static::assertResponseStatusCodeSame(403);
+    }
+
     public function testPurgeFixturesReturns422ForInvalidFixtureSerialisation(): void
     {
         $this->client->request(
@@ -170,7 +348,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode([
                 ['fixture' => 'not-valid-serialisation', 'model' => serialize(new TestModel('x'))],
             ]),
@@ -188,7 +366,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode([
                 ['fixture' => serialize($fixture), 'model' => 'not-valid-serialisation'],
             ]),
@@ -207,7 +385,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
             json_encode([
                 ['fixture' => serialize($fixture), 'model' => serialize($model)],
             ]),
@@ -215,4 +393,5 @@ class FixtureControllerTest extends AbstractWebTestCase
 
         static::assertResponseStatusCodeSame(422);
     }
+
 }

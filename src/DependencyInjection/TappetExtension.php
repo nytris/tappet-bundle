@@ -35,6 +35,10 @@ class TappetExtension extends Extension
      */
     public function load(array $configs, ContainerBuilder $container): void
     {
+        $config = $this->processConfiguration(new Configuration(), $configs);
+        $container->setParameter('tappet.enabled', $config['enabled']);
+        $container->setParameter('tappet.api_key', $config['api_key']);
+
         $container->registerForAutoconfiguration(FixtureLoaderInterface::class)
             ->addTag('tappet.fixture_loader');
 

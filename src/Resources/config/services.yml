@@ -5,6 +5,14 @@ services:
 
     Tappet\Bundle\Controller\:
         resource: '../../Controller/'
+        bind:
+            bool $enabled: '%tappet.enabled%'
+
+    Tappet\Bundle\Authorisation\AuthorisationChecker:
+        arguments:
+            $apiKey: '%tappet.api_key%'
+
+    Tappet\Bundle\Authorisation\AuthorisationCheckerInterface: '@Tappet\Bundle\Authorisation\AuthorisationChecker'
 
     Tappet\Api\Fixture\Loader\DelegatingFixtureLoader: ~
     Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface: '@Tappet\Api\Fixture\Loader\DelegatingFixtureLoader'
