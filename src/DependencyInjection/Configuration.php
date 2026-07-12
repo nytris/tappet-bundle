@@ -36,7 +36,7 @@ class Configuration implements ConfigurationInterface
 
         $children = $rootNode->children();
         $children->booleanNode('enabled')->defaultFalse();
-        $children->scalarNode('api_key')->defaultNull();
+        $children->scalarNode('api_key')->isRequired()->cannotBeEmpty();
 
         return $treeBuilder;
     }
