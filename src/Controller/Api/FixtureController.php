@@ -21,8 +21,8 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface;
 use Tappet\Bundle\Authorisation\AuthorisationCheckerInterface;
-use Tappet\Core\Fixture\FixtureInterface;
-use Tappet\Core\Fixture\ModelInterface;
+use Tappet\Common\Fixture\FixtureInterface;
+use Tappet\Common\Fixture\ModelInterface;
 
 /**
  * Class FixtureController.

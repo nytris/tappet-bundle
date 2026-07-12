@@ -14,3 +14,4 @@ services:
 
 tappet:
     enabled: false
+    api_key: 'test-api-key'

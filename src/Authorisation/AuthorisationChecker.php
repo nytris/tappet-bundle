@@ -24,7 +24,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 class AuthorisationChecker implements AuthorisationCheckerInterface
 {
     public function __construct(
-        private readonly ?string $apiKey,
+        private readonly string $apiKey,
     ) {
     }
 
@@ -33,10 +33,6 @@ class AuthorisationChecker implements AuthorisationCheckerInterface
      */
     public function checkAuthorisation(Request $request): void
     {
-        if ($this->apiKey === null) {
-            return;
-        }
-
         $authorisationHeader = $request->headers->get('Authorization', '');
 
         if ($authorisationHeader !== 'Bearer ' . $this->apiKey) {

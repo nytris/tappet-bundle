@@ -13,7 +13,7 @@ declare(strict_types=1);
 
 namespace Tappet\Bundle\Tests\Functional\Util\Fixture;
 
-use Tappet\Core\Fixture\AbstractFixture;
+use Tappet\Common\Fixture\AbstractFixture;
 
 /**
  * Class TestFixture.
