@@ -107,15 +107,64 @@ The `unloader` callable receives both the fixture and the model and deletes the 
 
 Tappet calls the `unloader` automatically after each scenario completes, whether it passed or failed.
 
-## Fixture API endpoints
+### 4. Write remote state providers (optional)
+
+Sometimes a GUI test needs to assert on a value that either:
+
+- Is deliberately never surfaced anywhere in the UI (e.g. for security reasons), or
+- Is presented on a page, but that page is not directly relevant to the scenario under test, so it
+  would be inefficient (and fragile - a bug on that unrelated page could then break this scenario too)
+  to load it just to read the value off it.
+
+For each such value, create a service that implements `RemoteStateProviderInterface`. Like fixture
+loaders, the bundle auto-discovers these via Symfony's autoconfiguration; no manual tagging needed.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Tests\Tappet\RemoteState;
+
+use App\Repository\UserRepository;
+use Tappet\Api\RemoteState\RemoteStateProviderInterface;
+
+class UserRemoteStateProvider implements RemoteStateProviderInterface
+{
+    public function __construct(private readonly UserRepository $userRepository) {}
+
+    public function getProviders(): array
+    {
+        return [
+            'user-activation-token' => function (): ?string {
+                return $this->userRepository->findCurrentUser()?->getActivationToken();
+            },
+        ];
+    }
+}
+```
+
+Each entry in the returned array maps a unique handle to a callable that fetches the corresponding
+value. A test then asserts on that value via the handle, using whatever
+`RemoteStateAssertionInterface` you provide - e.g. with the standard `ExpectRemoteState`:
+
+```php
+$scenario->expect(new ExpectRemoteState('user-activation-token', 'abc123'));
+```
+
+Values are serialized with PHP's `serialize()`, so any `callable(): mixed` is supported, not just
+scalars.
+
+## API endpoints
 
 The bundle registers these routes automatically:
 
-| Method   | Path                                  | Purpose                                       |
-|----------|---------------------------------------|-----------------------------------------------|
-| `POST`   | `/.well-known/tappet/fixture/{class}` | Create a single fixture                       |
-| `POST`   | `/.well-known/tappet/fixtures`        | Create multiple fixtures (in bulk)            |
-| `DELETE` | `/.well-known/tappet/fixtures`        | Delete all fixtures created in this scenario  |
+| Method   | Path                                         | Purpose                                      |
+|----------|-----------------------------------------------|-----------------------------------------------|
+| `POST`   | `/.well-known/tappet/fixture/{class}`         | Create a single fixture                      |
+| `POST`   | `/.well-known/tappet/fixtures`                | Create multiple fixtures (in bulk)           |
+| `DELETE` | `/.well-known/tappet/fixtures`                | Delete all fixtures created in this scenario |
+| `GET`    | `/.well-known/tappet/remote-state/{handle}`   | Fetch a remote state value by its handle     |
 
 All requests are validated against the `Authorization: Bearer <key>` header using the configured
 `api_key`. The `api_key` setting is required and may not be empty: requests that do not present the

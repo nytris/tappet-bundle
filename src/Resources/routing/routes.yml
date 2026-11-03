@@ -12,3 +12,8 @@ tappet_api_purge_fixtures:
     path: '/.well-known/tappet/fixtures'
     methods: ['DELETE']
     controller: Tappet\Bundle\Controller\Api\FixtureController::purgeAction
+
+tappet_api_fetch_remote_state:
+    path: '/.well-known/tappet/remote-state/{handle}'
+    methods: ['GET']
+    controller: Tappet\Bundle\Controller\Api\RemoteStateController::fetchAction

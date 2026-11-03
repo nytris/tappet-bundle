@@ -12,6 +12,9 @@ services:
     Tappet\Bundle\Tests\Functional\Util\Fixture\TestFixtureLoader:
         autoconfigure: true
 
+    Tappet\Bundle\Tests\Functional\Util\RemoteState\TestRemoteStateProvider:
+        autoconfigure: true
+
 tappet:
     enabled: false
     api_key: 'test-api-key'
