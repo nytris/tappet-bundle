@@ -14,11 +14,15 @@ declare(strict_types=1);
 namespace Tappet\Bundle\Tests\Functional\Fixture;
 
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
+use Tappet\Api\Event\PostFixtureLoadRequestEvent;
+use Tappet\Api\Event\PreFixtureLoadRequestEvent;
 use Tappet\Bundle\Tests\Functional\AbstractWebTestCase;
 use Tappet\Bundle\Tests\Functional\Util\Fixture\AnotherTestModel;
 use Tappet\Bundle\Tests\Functional\Util\Fixture\TestFixture;
 use Tappet\Bundle\Tests\Functional\Util\Fixture\TestFixtureLoader;
 use Tappet\Bundle\Tests\Functional\Util\Fixture\TestModel;
+use Tappet\Common\Fixture\LoadedFixture;
 
 /**
  * Class FixtureControllerTest.
@@ -58,7 +62,7 @@ class FixtureControllerTest extends AbstractWebTestCase
 
         $this->client->request(
             'POST',
-            '/.well-known/tappet/fixture/' . $fixtureClass,
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
             [],
             [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
@@ -82,7 +86,7 @@ class FixtureControllerTest extends AbstractWebTestCase
 
         $this->client->request(
             'POST',
-            '/.well-known/tappet/fixture/' . $fixtureClass,
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
             [],
             [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
@@ -96,6 +100,63 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertSame('another-widget', $model->name);
     }
 
+    public function testLoadFixtureDispatchesPreLoadEvent(): void
+    {
+        $fixture = new TestFixture('another-widget');
+        $fixtureClass = str_replace('\\', '--', TestFixture::class);
+        $capturedEvent = null;
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = static::getContainer()->get(EventDispatcherInterface::class);
+        $dispatcher->addListener(PreFixtureLoadRequestEvent::class, function ($event) use (&$capturedEvent) {
+            $capturedEvent = $event;
+        });
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize($fixture)]),
+        );
+
+        static::assertInstanceOf(PreFixtureLoadRequestEvent::class, $capturedEvent);
+        $eventFixtures = $capturedEvent->getFixtures();
+        static::assertEquals([$fixture::class], array_keys($eventFixtures));
+        static::assertEquals(['my-handle'], array_keys($eventFixtures[$fixture::class]));
+        static::assertEquals($fixture, $eventFixtures[$fixture::class]['my-handle']);
+    }
+
+    public function testLoadFixtureDispatchesPostLoadEvent(): void
+    {
+        $fixture = new TestFixture('another-widget');
+        $fixtureClass = str_replace('\\', '--', TestFixture::class);
+        $capturedEvent = null;
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = static::getContainer()->get(EventDispatcherInterface::class);
+        $dispatcher->addListener(PostFixtureLoadRequestEvent::class, function ($event) use (&$capturedEvent) {
+            $capturedEvent = $event;
+        });
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize($fixture)]),
+        );
+
+        static::assertInstanceOf(PostFixtureLoadRequestEvent::class, $capturedEvent);
+        $eventLoadedFixtures = $capturedEvent->getLoadedFixtures();
+        static::assertEquals([TestModel::class], array_keys($eventLoadedFixtures));
+        static::assertEquals(['my-handle'], array_keys($eventLoadedFixtures[TestModel::class]));
+        static::assertEquals(
+            new LoadedFixture($fixture, new TestModel('another-widget'), 'my-handle'),
+            $eventLoadedFixtures[TestModel::class]['my-handle']
+        );
+    }
+
     public function testLoadFixtureReturns403WhenAuthorizationHeaderIsMissing(): void
     {
         $fixture = new TestFixture('my-widget');
@@ -103,7 +164,7 @@ class FixtureControllerTest extends AbstractWebTestCase
 
         $this->client->request(
             'POST',
-            '/.well-known/tappet/fixture/' . $fixtureClass,
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
             [],
             [],
             ['CONTENT_TYPE' => 'application/json'],
@@ -113,17 +174,17 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertResponseStatusCodeSame(403);
     }
 
-    public function testLoadFixtureReturns403WhenAuthorizationHeaderIsWrong(): void
+    public function testLoadFixtureReturns403WhenAuthorizationHeaderIsIncorrect(): void
     {
         $fixture = new TestFixture('my-widget');
         $fixtureClass = str_replace('\\', '--', TestFixture::class);
 
         $this->client->request(
             'POST',
-            '/.well-known/tappet/fixture/' . $fixtureClass,
+            '/.well-known/tappet/fixture/' . $fixtureClass . '/my-handle',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer incorrect-key'],
             json_encode(['serialisation' => serialize($fixture)]),
         );
 
@@ -134,7 +195,7 @@ class FixtureControllerTest extends AbstractWebTestCase
     {
         $this->client->request(
             'POST',
-            '/.well-known/tappet/fixture/No--Such--Class',
+            '/.well-known/tappet/fixture/No--Such--Class/my-handle',
             [],
             [],
             ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
@@ -190,6 +251,61 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertSame('specific-name', $models['my-handle']->name);
     }
 
+    public function testLoadMultipleFixturesDispatchesPreLoadEvent(): void
+    {
+        $fixture = new TestFixture('another-widget');
+        $capturedEvent = null;
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = static::getContainer()->get(EventDispatcherInterface::class);
+        $dispatcher->addListener(PreFixtureLoadRequestEvent::class, function ($event) use (&$capturedEvent) {
+            $capturedEvent = $event;
+        });
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize(['my-handle' => $fixture])]),
+        );
+
+        static::assertInstanceOf(PreFixtureLoadRequestEvent::class, $capturedEvent);
+        $eventFixtures = $capturedEvent->getFixtures();
+        static::assertEquals([$fixture::class], array_keys($eventFixtures));
+        static::assertEquals(['my-handle'], array_keys($eventFixtures[$fixture::class]));
+        static::assertEquals($fixture, $eventFixtures[$fixture::class]['my-handle']);
+    }
+
+    public function testLoadMultipleFixturesDispatchesPostLoadEvent(): void
+    {
+        $fixture = new TestFixture('another-widget');
+        $capturedEvent = null;
+        /** @var EventDispatcherInterface $dispatcher */
+        $dispatcher = static::getContainer()->get(EventDispatcherInterface::class);
+        $dispatcher->addListener(PostFixtureLoadRequestEvent::class, function ($event) use (&$capturedEvent) {
+            $capturedEvent = $event;
+        });
+
+        $this->client->request(
+            'POST',
+            '/.well-known/tappet/fixtures',
+            [],
+            [],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer test-api-key'],
+            json_encode(['serialisation' => serialize(['my-handle' => $fixture])]),
+        );
+
+        static::assertInstanceOf(PostFixtureLoadRequestEvent::class, $capturedEvent);
+        $eventLoadedFixtures = $capturedEvent->getLoadedFixtures();
+        static::assertEquals([TestModel::class], array_keys($eventLoadedFixtures));
+        static::assertEquals(['my-handle'], array_keys($eventLoadedFixtures[TestModel::class]));
+        static::assertEquals(
+            new LoadedFixture($fixture, new TestModel('another-widget'), 'my-handle'),
+            $eventLoadedFixtures[TestModel::class]['my-handle']
+        );
+    }
+
     public function testLoadMultipleFixturesReturns403WhenAuthorizationHeaderIsMissing(): void
     {
         $fixture = new TestFixture('my-widget');
@@ -206,7 +322,7 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertResponseStatusCodeSame(403);
     }
 
-    public function testLoadMultipleFixturesReturns403WhenAuthorizationHeaderIsWrong(): void
+    public function testLoadMultipleFixturesReturns403WhenAuthorizationHeaderIsIncorrect(): void
     {
         $fixture = new TestFixture('my-widget');
 
@@ -215,7 +331,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer incorrect-key'],
             json_encode(['serialisation' => serialize(['handle' => $fixture])]),
         );
 
@@ -322,7 +438,7 @@ class FixtureControllerTest extends AbstractWebTestCase
         static::assertResponseStatusCodeSame(403);
     }
 
-    public function testPurgeFixturesReturns403WhenAuthorizationHeaderIsWrong(): void
+    public function testPurgeFixturesReturns403WhenAuthorizationHeaderIsIncorrect(): void
     {
         $fixture = new TestFixture('to-delete');
         $model = new TestModel('to-delete');
@@ -332,7 +448,7 @@ class FixtureControllerTest extends AbstractWebTestCase
             '/.well-known/tappet/fixtures',
             [],
             [],
-            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer wrong-key'],
+            ['CONTENT_TYPE' => 'application/json', 'HTTP_AUTHORIZATION' => 'Bearer incorrect-key'],
             json_encode([
                 ['fixture' => serialize($fixture), 'model' => serialize($model)],
             ]),
@@ -393,5 +509,4 @@ class FixtureControllerTest extends AbstractWebTestCase
 
         static::assertResponseStatusCodeSame(422);
     }
-
 }

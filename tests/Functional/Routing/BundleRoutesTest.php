@@ -53,7 +53,7 @@ class BundleRoutesTest extends AbstractKernelTestCase
     {
         $route = $this->router->getRouteCollection()->get('tappet_api_load_fixtures');
 
-        static::assertSame('/.well-known/tappet/fixture/{fixtureClass}', $route->getPath());
+        static::assertSame('/.well-known/tappet/fixture/{fixtureClass}/{fixtureHandle}', $route->getPath());
     }
 
     public function testLoadFixturesRouteOnlyAcceptsPostRequests(): void
@@ -61,6 +61,49 @@ class BundleRoutesTest extends AbstractKernelTestCase
         $route = $this->router->getRouteCollection()->get('tappet_api_load_fixtures');
 
         static::assertSame(['POST'], $route->getMethods());
+    }
+
+    public function testLoadFixturesRouteIsMatchable(): void
+    {
+        $this->router->getContext()->setMethod('POST');
+
+        $params = $this->router->match('/.well-known/tappet/fixture/My--Fixture/my-handle');
+
+        static::assertSame('tappet_api_load_fixtures', $params['_route']);
+        static::assertSame('My--Fixture', $params['fixtureClass']);
+    }
+
+    public function testLoadMultipleFixturesRouteIsAutomaticallyRegistered(): void
+    {
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_multiple_fixtures');
+
+        static::assertNotNull(
+            $route,
+            'Expected route "tappet_api_load_multiple_fixtures" to be registered automatically by the bundle'
+        );
+    }
+
+    public function testLoadMultipleFixturesRouteHasCorrectPath(): void
+    {
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_multiple_fixtures');
+
+        static::assertSame('/.well-known/tappet/fixtures', $route->getPath());
+    }
+
+    public function testLoadMultipleFixturesRouteOnlyAcceptsPostRequests(): void
+    {
+        $route = $this->router->getRouteCollection()->get('tappet_api_load_multiple_fixtures');
+
+        static::assertSame(['POST'], $route->getMethods());
+    }
+
+    public function testLoadMultipleFixturesRouteIsMatchable(): void
+    {
+        $this->router->getContext()->setMethod('POST');
+
+        $params = $this->router->match('/.well-known/tappet/fixtures');
+
+        static::assertSame('tappet_api_load_multiple_fixtures', $params['_route']);
     }
 
     public function testDeleteFixturesRouteIsAutomaticallyRegistered(): void
@@ -85,16 +128,6 @@ class BundleRoutesTest extends AbstractKernelTestCase
         $route = $this->router->getRouteCollection()->get('tappet_api_purge_fixtures');
 
         static::assertSame(['DELETE'], $route->getMethods());
-    }
-
-    public function testLoadFixturesRouteIsMatchable(): void
-    {
-        $this->router->getContext()->setMethod('POST');
-
-        $params = $this->router->match('/.well-known/tappet/fixture/My--Fixture');
-
-        static::assertSame('tappet_api_load_fixtures', $params['_route']);
-        static::assertSame('My--Fixture', $params['fixtureClass']);
     }
 
     public function testDeleteFixturesRouteIsMatchable(): void
