@@ -20,6 +20,7 @@ use Symfony\Component\DependencyInjection\Loader\DirectoryLoader;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 use Symfony\Component\HttpKernel\DependencyInjection\Extension;
 use Tappet\Api\Fixture\Loader\FixtureLoaderInterface;
+use Tappet\Api\RemoteState\RemoteStateProviderInterface;
 
 /**
  * Class TappetExtension.
@@ -28,6 +29,9 @@ use Tappet\Api\Fixture\Loader\FixtureLoaderInterface;
  */
 class TappetExtension extends Extension
 {
+    public const FIXTURE_LOADER_TAG = 'tappet.fixture_loader';
+    public const REMOTE_STATE_PROVIDER_TAG = 'tappet.remote_state_provider';
+
     /**
      * @inheritdoc
      *
@@ -40,7 +44,10 @@ class TappetExtension extends Extension
         $container->setParameter('tappet.api_key', $config['api_key']);
 
         $container->registerForAutoconfiguration(FixtureLoaderInterface::class)
-            ->addTag('tappet.fixture_loader');
+            ->addTag(self::FIXTURE_LOADER_TAG);
+
+        $container->registerForAutoconfiguration(RemoteStateProviderInterface::class)
+            ->addTag(self::REMOTE_STATE_PROVIDER_TAG);
 
         $fileLocator = new FileLocator(__DIR__ . '/../Resources/config');
         $loader = new DirectoryLoader($container, $fileLocator);

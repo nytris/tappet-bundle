@@ -17,6 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\HttpKernel\Bundle\Bundle;
 use Tappet\Bundle\DependencyInjection\Compiler\RegisterBundleRoutesPass;
 use Tappet\Bundle\DependencyInjection\Compiler\RegisterFixtureLoadersPass;
+use Tappet\Bundle\DependencyInjection\Compiler\RegisterRemoteStateProvidersPass;
 
 /**
  * Class TappetBundle.
@@ -36,5 +37,6 @@ class TappetBundle extends Bundle
 
         $container->addCompilerPass(new RegisterBundleRoutesPass());
         $container->addCompilerPass(new RegisterFixtureLoadersPass());
+        $container->addCompilerPass(new RegisterRemoteStateProvidersPass());
     }
 }

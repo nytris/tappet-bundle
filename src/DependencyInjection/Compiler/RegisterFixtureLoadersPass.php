@@ -17,13 +17,14 @@ use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 use Tappet\Api\Fixture\Loader\DelegatingFixtureLoader;
+use Tappet\Bundle\DependencyInjection\TappetExtension;
 
 /**
  * Class RegisterFixtureLoadersPass.
  *
  * Wires all services tagged with "tappet.fixture_loader" into the
  * DelegatingFixtureLoader. The tag is applied automatically via autoconfiguration
- * to any service whose class implements FixtureLoaderInterface.
+ * to any service whose class implements {@see FixtureLoaderInterface} by the setup in {@see TappetExtension}.
  *
  * @author Dan Phillimore <dan@ovms.co>
  */
@@ -37,7 +38,7 @@ class RegisterFixtureLoadersPass implements CompilerPassInterface
 
         $delegatingLoaderDef = $container->getDefinition(DelegatingFixtureLoader::class);
 
-        foreach ($container->findTaggedServiceIds('tappet.fixture_loader') as $id => $tags) {
+        foreach ($container->findTaggedServiceIds(TappetExtension::FIXTURE_LOADER_TAG) as $id => $tags) {
             $delegatingLoaderDef->addMethodCall('registerLoader', [new Reference($id)]);
         }
     }

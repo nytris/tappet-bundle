@@ -16,3 +16,6 @@ services:
 
     Tappet\Api\Fixture\Loader\DelegatingFixtureLoader: ~
     Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface: '@Tappet\Api\Fixture\Loader\DelegatingFixtureLoader'
+
+    Tappet\Api\RemoteState\DelegatingRemoteStateProvider: ~
+    Tappet\Api\RemoteState\DelegatingRemoteStateProviderInterface: '@Tappet\Api\RemoteState\DelegatingRemoteStateProvider'
