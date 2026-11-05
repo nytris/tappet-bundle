@@ -13,15 +13,19 @@ declare(strict_types=1);
 
 namespace Tappet\Bundle\Controller\Api;
 
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\AsController;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
+use Tappet\Api\Event\PostFixtureLoadRequestEvent;
+use Tappet\Api\Event\PreFixtureLoadRequestEvent;
 use Tappet\Api\Fixture\Loader\DelegatingFixtureLoaderInterface;
 use Tappet\Bundle\Authorisation\AuthorisationCheckerInterface;
 use Tappet\Common\Fixture\FixtureInterface;
+use Tappet\Common\Fixture\LoadedFixture;
 use Tappet\Common\Fixture\ModelInterface;
 
 /**
@@ -35,6 +39,7 @@ class FixtureController
     public function __construct(
         private readonly DelegatingFixtureLoaderInterface $delegatingFixtureLoader,
         private readonly AuthorisationCheckerInterface $authorisationChecker,
+        private readonly EventDispatcherInterface $eventDispatcher,
         private readonly bool $enabled,
     ) {
     }
@@ -96,7 +101,7 @@ class FixtureController
      * Expects a JSON body of the form:
      * {"serialisation": "<serialised FixtureInterface>"}
      */
-    public function loadAction(Request $request, string $fixtureClass): JsonResponse
+    public function loadAction(Request $request, string $fixtureClass, string $fixtureHandle): JsonResponse
     {
         if (!$this->enabled) {
             throw new NotFoundHttpException();
@@ -127,7 +132,19 @@ class FixtureController
             ));
         }
 
+        $this->eventDispatcher->dispatch(new PreFixtureLoadRequestEvent([
+            $fixtureClass => [
+                $fixtureHandle => $fixture
+            ]
+        ]));
+
         $fixtureModel = $this->delegatingFixtureLoader->loadFixture($fixture);
+
+        $this->eventDispatcher->dispatch(new PostFixtureLoadRequestEvent([
+            $fixtureModel::class => [
+                $fixtureHandle => new LoadedFixture($fixture, $fixtureModel, $fixtureHandle)
+            ]
+        ]));
 
         return new JsonResponse(['serialisation' => serialize($fixtureModel)]);
     }
@@ -162,7 +179,7 @@ class FixtureController
             );
         }
 
-        $models = [];
+        $fixturesByClassAndHandle = [];
 
         foreach ($fixtures as $handle => $fixture) {
             if (!$fixture instanceof FixtureInterface) {
@@ -173,8 +190,22 @@ class FixtureController
                 ));
             }
 
-            $models[$handle] = $this->delegatingFixtureLoader->loadFixture($fixture);
+            $fixturesByClassAndHandle[$fixture::class][$handle] = $fixture;
         }
+
+        $this->eventDispatcher->dispatch(new PreFixtureLoadRequestEvent($fixturesByClassAndHandle));
+
+        $loadedFixturesByModelClass = [];
+        $models = [];
+
+        foreach ($fixtures as $handle => $fixture) {
+            $model = $this->delegatingFixtureLoader->loadFixture($fixture);
+
+            $loadedFixturesByModelClass[$model::class][$handle] = new LoadedFixture($fixture, $model, $handle);
+            $models[$handle] = $model;
+        }
+
+        $this->eventDispatcher->dispatch(new PostFixtureLoadRequestEvent($loadedFixturesByModelClass));
 
         return new JsonResponse(['serialisation' => serialize($models)]);
     }

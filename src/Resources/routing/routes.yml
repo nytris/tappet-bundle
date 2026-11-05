@@ -1,5 +1,5 @@
 tappet_api_load_fixtures:
-    path: '/.well-known/tappet/fixture/{fixtureClass}'
+    path: '/.well-known/tappet/fixture/{fixtureClass}/{fixtureHandle}'
     methods: ['POST']
     controller: Tappet\Bundle\Controller\Api\FixtureController::loadAction
 
